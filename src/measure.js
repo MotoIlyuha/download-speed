@@ -11,9 +11,10 @@ export async function measureOnce(url, timeoutMs) {
   const start = performance.now();
   // Снаружи try, чтобы при обрыве на чтении тела ошибка показала, что заголовки уже пришли.
   let status = null;
+  // Сигнал действует на весь запрос: и на ожидание заголовков, и на чтение тела.
+  const signal = AbortSignal.timeout(timeoutMs);
   try {
-    // Сигнал действует на весь запрос: и на ожидание заголовков, и на чтение тела.
-    const res = await fetch(url, { headers: HEADERS, signal: AbortSignal.timeout(timeoutMs) });
+    const res = await fetch(url, { headers: HEADERS, signal });
     status = res.status;
     // fetch возвращает ответ, как только пришли заголовки, — это и есть время до заголовков.
     const ttfbMs = performance.now() - start;
@@ -35,7 +36,10 @@ export async function measureOnce(url, timeoutMs) {
     const timeMs = performance.now() - start;
     return { ok: true, status: res.status, bytes, timeMs, ttfbMs };
   } catch (err) {
-    return { ok: false, status, error: describeError(err, timeoutMs) };
+    // Таймаут определяем по самому сигналу, а не по имени ошибки: в Node 18.18 при обрыве
+    // во время чтения тела undici бросает общий AbortError вместо TimeoutError.
+    const error = signal.aborted ? `таймаут ${timeoutMs / 1000} с` : describeError(err);
+    return { ok: false, status, error };
   }
 }
 
@@ -50,10 +54,7 @@ export async function measureSeries(url, count, timeoutMs, onResult = () => {}) 
   return results;
 }
 
-function describeError(err, timeoutMs) {
-  if (err.name === 'TimeoutError') {
-    return `таймаут ${timeoutMs / 1000} с`;
-  }
+function describeError(err) {
   // fetch пишет просто "fetch failed", а настоящая причина (ECONNREFUSED, ENOTFOUND...) лежит в cause.
   // У AggregateError (несколько попыток подключения) message пустой, но есть code.
   return err.cause?.message || err.cause?.code || err.message;

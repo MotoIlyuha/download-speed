@@ -1,4 +1,3 @@
-#!/usr/bin/env node
 // Точка входа: разбор аргументов, вывод таблицы и итогов, код выхода.
 
 import { parseArgs } from 'node:util';
