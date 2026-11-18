@@ -12,7 +12,7 @@
 ## Запуск
 
 ```bash
-git clone <адрес репозитория>
+git clone https://github.com/MotoIlyuha/download-speed.git
 cd download-speed
 node src/cli.js "https://speed.cloudflare.com/__down?bytes=10000000"
 ```
